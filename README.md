@@ -70,6 +70,19 @@ The theme can be customized through the `theme.conf` file. Here are the availabl
 - `showSessionSelector`: Show session type selector (default: false)
 - `animationDuration`: Duration of animations in ms (default: 300)
 
+## Shortcuts
+
+The theme provides several keyboard shortcuts for quick access to various functions:
+
+- `F1`: Toggle help text display
+- `F2` or `Alt+U`: Toggle user selector
+- `Ctrl+F2` or `Alt+Ctrl+U`: Switch to previous user
+- `F3` or `Alt+S`: Toggle session selector
+- `Ctrl+F3` or `Alt+Ctrl+S`: Switch to previous session
+- `F10`: Suspend system (if available)
+- `F11`: Shutdown system (if available)
+- `F12`: Reboot system (if available)
+
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
