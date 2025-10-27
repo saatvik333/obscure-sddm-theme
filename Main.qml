@@ -1,6 +1,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import SddmComponents 2.0
+import Qt5Compat.GraphicalEffects
 
 Rectangle {
     id: root
@@ -14,6 +15,14 @@ Rectangle {
     readonly property int animationDuration: config.intValue("animationDuration") || 300
     readonly property int sessionsFontSize: config.intValue("sessionsFontSize") || 24
     readonly property real backgroundOpacity: config.realValue("backgroundOpacity") || 0.8
+    readonly property bool backgroundBlurEnabled: config.boolValue("backgroundBlurEnabled") || false
+    readonly property real backgroundBlurRadius: {
+        const value = config.realValue("backgroundBlurRadius")
+        if (typeof value !== "number" || !isFinite(value) || value <= 0) {
+            return 0
+        }
+        return Math.min(64, value)
+    }
     readonly property bool allowEmptyPassword: config.boolValue("allowEmptyPassword") || false
     readonly property bool showUserRealName: config.boolValue("showUserRealName") || false
     readonly property var ipaChars: [
@@ -73,13 +82,22 @@ Rectangle {
             smooth: true
             cache: true
             asynchronous: true
-            opacity: backgroundOpacity
+            opacity: backgroundBlurEnabled ? 0 : backgroundOpacity
 
             onStatusChanged: {
                 if (status === Image.Error) {
                     console.warn("Failed to load background image:", source)
                 }
             }
+        }
+
+        FastBlur {
+            anchors.fill: backgroundImage
+            source: backgroundImage
+            radius: backgroundBlurEnabled ? backgroundBlurRadius : 0
+            transparentBorder: true
+            visible: backgroundBlurEnabled && backgroundImage.visible
+            opacity: backgroundOpacity
         }
     }
 
@@ -153,7 +171,12 @@ Rectangle {
                     selectByMouse: false
                     selectionColor: "transparent"
                     selectedTextColor: "transparent"
-                    cursorVisible: true
+                    cursorVisible: false
+                    cursorDelegate: Item {
+                        visible: false
+                        width: 0
+                        height: 0
+                    }
                     focus: true
 
                     onAccepted: attemptLogin()
@@ -382,7 +405,7 @@ Rectangle {
     }
 
     function toggleSessionSelector() {
-        sessionSelector.visible = !sessionSelector.visible
+        showSessionSelector = !showSessionSelector
     }
 
     function attemptLogin() {
