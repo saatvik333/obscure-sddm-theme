@@ -1,30 +1,97 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
+import QtQml 2.15
 import SddmComponents 2.0
 import Qt5Compat.GraphicalEffects
 
 Rectangle {
     id: root
 
-    // Constants
-    readonly property color textColor: config.stringValue("textColor") || "#ffffff"
-    readonly property color errorColor: config.stringValue("errorColor") || "#ff4444"
-    readonly property color backgroundColor: config.stringValue("backgroundColor") || "#000000"
-    readonly property string fontFamily: config.stringValue("fontFamily") || "Inter"
-    readonly property int baseFontSize: Math.max(12, Math.min(18, config.intValue("baseFontSize") || 14))
-    readonly property int animationDuration: config.intValue("animationDuration") || 300
-    readonly property int sessionsFontSize: config.intValue("sessionsFontSize") || 24
-    readonly property real backgroundOpacity: config.realValue("backgroundOpacity") || 0.8
-    readonly property bool backgroundBlurEnabled: config.boolValue("backgroundBlurEnabled") || false
-    readonly property real backgroundBlurRadius: {
-        const value = config.realValue("backgroundBlurRadius")
-        if (typeof value !== "number" || !isFinite(value) || value <= 0) {
-            return 0
+    QtObject {
+        id: configUtil
+
+        function stringValue(key, fallback) {
+            const value = config.stringValue(key)
+            if (typeof value !== "string") {
+                return fallback
+            }
+            const trimmed = value.trim()
+            return trimmed.length > 0 ? trimmed : fallback
         }
-        return Math.min(64, value)
+
+        function colorValue(key, fallback) {
+            const candidate = stringValue(key, "")
+            if (!candidate) {
+                return fallback
+            }
+            const normalized = candidate.trim()
+            try {
+                Qt.darker(normalized, 1.0)
+                return normalized
+            } catch (error) {
+                console.warn("Invalid color for", key, ":", candidate, "- falling back to", fallback)
+                return fallback
+            }
+        }
+
+        function boolValue(key, fallback) {
+            const value = config.boolValue(key)
+            if (typeof value === "boolean") {
+                return value
+            }
+            if (typeof value === "string") {
+                const lowered = value.toLowerCase()
+                if (lowered === "true") return true
+                if (lowered === "false") return false
+            }
+            return fallback
+        }
+
+        function clamp(value, min, max) {
+            if (!isFinite(value)) {
+                return min
+            }
+            return Math.max(min, Math.min(max, value))
+        }
+
+        function intValue(key, fallback, min, max) {
+            const raw = config.intValue(key)
+            const numeric = Number(raw)
+            if (!isFinite(numeric)) {
+                return fallback
+            }
+            if (typeof min === "number" && typeof max === "number") {
+                return clamp(Math.round(numeric), min, max)
+            }
+            return Math.round(numeric)
+        }
+
+        function realValue(key, fallback, min, max) {
+            const raw = config.realValue(key)
+            const numeric = Number(raw)
+            if (!isFinite(numeric)) {
+                return fallback
+            }
+            if (typeof min === "number" && typeof max === "number") {
+                return clamp(numeric, min, max)
+            }
+            return numeric
+        }
     }
-    readonly property bool allowEmptyPassword: config.boolValue("allowEmptyPassword") || false
-    readonly property bool showUserRealName: config.boolValue("showUserRealName") || false
+
+    // Constants
+    readonly property color textColor: configUtil.colorValue("textColor", "#ffffff")
+    readonly property color errorColor: configUtil.colorValue("errorColor", "#ff4444")
+    readonly property color backgroundColor: configUtil.colorValue("backgroundColor", "#000000")
+    readonly property string fontFamily: configUtil.stringValue("fontFamily", "Inter")
+    readonly property int baseFontSize: configUtil.intValue("baseFontSize", 14, 12, 18)
+    readonly property int animationDuration: configUtil.intValue("animationDuration", 300, 0, 5000)
+    readonly property int sessionsFontSize: configUtil.intValue("sessionsFontSize", 24, 14, 64)
+    readonly property real backgroundOpacity: configUtil.realValue("backgroundOpacity", 0.8, 0, 1)
+    readonly property bool backgroundBlurEnabled: configUtil.boolValue("backgroundBlurEnabled", false)
+    readonly property real backgroundBlurRadius: configUtil.realValue("backgroundBlurRadius", 0, 0, 64)
+    readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
+    readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property var ipaChars: [
     "ɐ", "ɑ", "ɒ", "æ", "ɓ", "ʙ", "β", "ɔ", "ɕ", "ç", "ɗ", "ɖ", "ð", "ʤ", "ə", "ɘ",
     "ɚ", "ɛ", "ɜ", "ɝ", "ɞ", "ɟ", "ʄ", "ɡ", "ɠ", "ɢ", "ʛ", "ɦ", "ɧ", "ħ", "ɥ", "ʜ",
@@ -34,16 +101,31 @@ Rectangle {
     ]
     // State management
     property int currentUserIndex: {
-        if (userModel && userModel.lastIndex !== undefined) {
-            return userModel.lastIndex;
+        const count = userCount()
+        if (count === 0) {
+            return 0
         }
-        return 0;
+        if (userModel && typeof userModel.lastIndex === "number") {
+            return clampIndex(userModel.lastIndex, count)
+        }
+        return 0
     }
     property bool isLoginInProgress: false
-    property bool showSessionSelector: config.boolValue("showSessionSelector") || false
-    property bool showUserSelector: config.boolValue("showUserSelector") || false
+    property bool showSessionSelector: configUtil.boolValue("showSessionSelector", false)
+    property bool showUserSelector: configUtil.boolValue("showUserSelector", false)
     property bool loginFailed: false
-    property int currentSessionsIndex: sessionModel?.lastIndex ?? 0
+    property string loginErrorMessage: ""
+    property string passwordMask: ""
+    property int currentSessionsIndex: {
+        const sessions = sessionCount()
+        if (sessions === 0) {
+            return 0
+        }
+        if (sessionModel && typeof sessionModel.lastIndex === "number") {
+            return clampIndex(sessionModel.lastIndex, sessions)
+        }
+        return 0
+    }
 
     // Constants for roles
     readonly property int sessionNameRole: Qt.UserRole + 4
@@ -52,8 +134,11 @@ Rectangle {
     // Computed properties
     readonly property string currentUsername: getCurrentUsername()
     readonly property string currentSession: getCurrentSession()
-    readonly property bool hasMultipleUsers: userModel?.count > 1
-    readonly property bool hasMultipleSessions: sessionModel?.rowCount() > 1
+    readonly property bool hasMultipleUsers: userCount() > 1
+    readonly property bool hasMultipleSessions: sessionCount() > 1
+    readonly property bool userSelectorVisible: showUserSelector && hasMultipleUsers
+    readonly property bool sessionSelectorVisible: showSessionSelector && hasMultipleSessions
+    readonly property bool isBackgroundBlurActive: backgroundBlurEnabled && backgroundBlurRadius > 0
 
     anchors.fill: parent
 
@@ -66,12 +151,12 @@ Rectangle {
         Image {
             id: backgroundImage
             anchors.fill: parent
-            source: config.stringValue("backgroundImage") || ""
-            visible: source !== ""  // Only show if we have a source
+            source: configUtil.stringValue("backgroundImage", "")
+            visible: source.length > 0
 
             fillMode: {
                 if (source === "") return Image.Stretch;
-                switch(config.stringValue("backgroundFillMode")) {
+                switch(configUtil.stringValue("backgroundFillMode", "")) {
                     case "stretch": return Image.Stretch;
                     case "tile": return Image.Tile;
                     case "center": return Image.Pad;
@@ -82,7 +167,7 @@ Rectangle {
             smooth: true
             cache: true
             asynchronous: true
-            opacity: backgroundBlurEnabled ? 0 : backgroundOpacity
+            opacity: isBackgroundBlurActive ? 0 : backgroundOpacity
 
             onStatusChanged: {
                 if (status === Image.Error) {
@@ -94,9 +179,9 @@ Rectangle {
         FastBlur {
             anchors.fill: backgroundImage
             source: backgroundImage
-            radius: backgroundBlurEnabled ? backgroundBlurRadius : 0
+            radius: isBackgroundBlurActive ? backgroundBlurRadius : 0
             transparentBorder: true
-            visible: backgroundBlurEnabled && backgroundImage.visible
+            visible: isBackgroundBlurActive && backgroundImage.visible
             opacity: backgroundOpacity
         }
     }
@@ -134,7 +219,7 @@ Rectangle {
             // User selector
             UserSelector {
                 id: userSelector
-                visible: showUserSelector
+                visible: userSelectorVisible
                 width: parent.width
                 currentUser: currentUsername
                 onUserChanged: cycleUser(direction)
@@ -144,7 +229,6 @@ Rectangle {
             }
 
             // Password input
-                        // Replace the passwordContainer with this implementation
             Rectangle {
                 id: passwordContainer
                 width: parent.width
@@ -153,6 +237,8 @@ Rectangle {
                 radius: 8
                 border.color: passwordInput.activeFocus ? textColor : Qt.rgba(1, 1, 1, 0.2)
                 border.width: 1
+
+                onWidthChanged: updatePasswordMask()
 
                 Behavior on border.color {
                     ColorAnimation { duration: 200 }
@@ -178,11 +264,20 @@ Rectangle {
                         height: 0
                     }
                     focus: true
+                    enabled: !isLoginInProgress
 
                     onAccepted: attemptLogin()
-                    onTextChanged: clearError()
+                    onTextChanged: {
+                        if (loginFailed) {
+                            clearError()
+                        }
+                        updatePasswordMask()
+                    }
 
-                    Keys.onEscapePressed: clear()
+                    Keys.onEscapePressed: {
+                        clear()
+                        updatePasswordMask()
+                    }
                 }
 
                 // Visible display of IPA characters
@@ -196,18 +291,9 @@ Rectangle {
                     color: textColor
                     horizontalAlignment: Text.AlignHCenter
                     verticalAlignment: Text.AlignVCenter
-                    text: {
-                        var displayText = ""
-                        // Limit the number of characters based on container width
-                        var maxChars = Math.floor((width - 8) / (font.pixelSize * 0.7))
-                        var length = Math.min(passwordInput.text.length, maxChars)
-                        for (var i = 0; i < length; i++) {
-                            var randomIndex = Math.floor(Math.random() * ipaChars.length)
-                            displayText += ipaChars[randomIndex]
-                        }
-                        return displayText
-                    }
+                    text: passwordMask
                     clip: true  // Ensure text doesn't overflow
+                    onWidthChanged: updatePasswordMask()
                 }
             }
 
@@ -215,8 +301,8 @@ Rectangle {
             Text {
                 id: errorMessage
                 width: parent.width
-                visible: loginFailed
-                text: ">_> FUCK OFF!!"
+                visible: loginFailed && loginErrorMessage.length > 0
+                text: loginErrorMessage
                 color: errorColor
                 font.family: fontFamily
                 font.pixelSize: baseFontSize - 1
@@ -233,7 +319,7 @@ Rectangle {
             SessionSelector {
                 id: sessionSelector
                 text: currentSession
-                visible: showSessionSelector  // Use config-controlled property
+                visible: sessionSelectorVisible
                 width: parent.width
                 height: 40
                 fontFamily: root.fontFamily
@@ -348,28 +434,71 @@ Rectangle {
 
     // Component initialization
     Component.onCompleted: {
-        passwordInput.forceActiveFocus()
+        if (userCount() > 0) {
+            passwordInput.forceActiveFocus()
+        }
         validateConfiguration()
+        updatePasswordMask()
         console.log("Theme initialized. Background:", backgroundImage.source)
     }
 
     // Helper functions
+    function setLoginError(message) {
+        const normalized = typeof message === "string" ? message.trim() : ""
+        loginErrorMessage = normalized
+        loginFailed = normalized.length > 0
+    }
+
+    function userCount() {
+        if (!userModel || typeof userModel.count !== "number") {
+            return 0
+        }
+        return userModel.count
+    }
+
+    function sessionCount() {
+        if (!sessionModel || typeof sessionModel.rowCount !== "function") {
+            return 0
+        }
+        return sessionModel.rowCount()
+    }
+
+    function clampIndex(value, size) {
+        if (size <= 0) {
+            return 0
+        }
+        const numeric = Number(value)
+        if (!isFinite(numeric)) {
+            return 0
+        }
+        const index = Math.floor(numeric)
+        if (index < 0) {
+            return 0
+        }
+        if (index >= size) {
+            return size - 1
+        }
+        return index
+    }
+
     function getCurrentUsername() {
-        if (!userModel || currentUserIndex < 0 || currentUserIndex >= userModel.count) {
+        const count = userCount()
+        if (count === 0 || currentUserIndex < 0 || currentUserIndex >= count) {
             return "Unknown User"
         }
         return userModel.data(userModel.index(currentUserIndex, 0), userNameRole) || "Unknown User"
     }
 
     function getCurrentSession() {
-        if (!sessionModel || currentSessionsIndex < 0 || currentSessionsIndex >= sessionModel.rowCount()) {
+        const sessions = sessionCount()
+        if (sessions === 0 || currentSessionsIndex < 0 || currentSessionsIndex >= sessions) {
             return "Unknown Session"
         }
         return sessionModel.data(sessionModel.index(currentSessionsIndex, 0), sessionNameRole) || "Unknown Session"
     }
 
     function getBackgroundFillMode() {
-        const mode = config.stringValue("backgroundFillMode")
+        const mode = configUtil.stringValue("backgroundFillMode", "")
         switch (mode) {
             case "stretch": return Image.Stretch
             case "tile": return Image.Tile
@@ -383,67 +512,93 @@ Rectangle {
     function cycleUser(direction) {
         if (!hasMultipleUsers) return
 
+        const count = userCount()
         const newIndex = direction > 0
-            ? (currentUserIndex + 1) % userModel.count
-            : (currentUserIndex - 1 + userModel.count) % userModel.count
+            ? (currentUserIndex + 1) % count
+            : (currentUserIndex - 1 + count) % count
 
         currentUserIndex = newIndex
+        ensureValidUserIndex()
     }
 
     function sessionsCycleSelectPrev() {
         if (!hasMultipleSessions) return
-        currentSessionsIndex = currentSessionsIndex > 0 ? currentSessionsIndex - 1 : sessionModel.rowCount() - 1
+        const sessions = sessionCount()
+        currentSessionsIndex = currentSessionsIndex > 0 ? currentSessionsIndex - 1 : sessions - 1
+        ensureValidSessionIndex()
     }
 
     function sessionsCycleSelectNext() {
         if (!hasMultipleSessions) return
-        currentSessionsIndex = currentSessionsIndex < sessionModel.rowCount() - 1 ? currentSessionsIndex + 1 : 0
+        const sessions = sessionCount()
+        currentSessionsIndex = currentSessionsIndex < sessions - 1 ? currentSessionsIndex + 1 : 0
+        ensureValidSessionIndex()
     }
 
     function toggleUserSelector() {
+        if (!hasMultipleUsers) return
         showUserSelector = !showUserSelector
     }
 
     function toggleSessionSelector() {
+        if (!hasMultipleSessions) return
         showSessionSelector = !showSessionSelector
     }
 
     function attemptLogin() {
-        if (isLoginInProgress || !userModel || !sessionModel) return
+        if (isLoginInProgress) {
+            return
+        }
 
-        const password = passwordInput.text
-        const username = userModel.data(userModel.index(currentUserIndex, 0), userNameRole) || ""
+        const users = userCount()
+        if (users === 0) {
+            setLoginError("No user accounts are available.")
+            return
+        }
 
-        if (!password && !config.boolValue("allowEmptyPassword")) return
+        const sessions = sessionCount()
+        if (sessions === 0) {
+            setLoginError("No sessions are available.")
+            return
+        }
 
+        const password = passwordInput.text || ""
+        if (!password.length && !allowEmptyPassword) {
+            setLoginError("Password is required.")
+            return
+        }
+
+        const username = userModel.data(userModel.index(clampIndex(currentUserIndex, users), 0), userNameRole) || ""
+        const sessionIndex = clampIndex(currentSessionsIndex, sessions)
+
+        setLoginError("")
         isLoginInProgress = true
-        sddm.login(username, password, currentSessionsIndex)
+        sddm.login(username, password, sessionIndex)
     }
 
     function handleLoginFailed() {
         if (!isLoginInProgress) return
 
         isLoginInProgress = false
-        loginFailed = true
         passwordInput.clear()
+        updatePasswordMask()
+        setLoginError("Incorrect credentials. Please try again.")
 
         errorBorder.border.width = 3
-        errorBorderTimer.start()
+        errorBorderTimer.restart()
         passwordInput.forceActiveFocus()
     }
 
     function handleLoginSucceeded() {
         isLoginInProgress = false
-        loginFailed = false
+        setLoginError("")
         errorBorder.border.width = 0
     }
 
     function clearError() {
-        if (loginFailed && passwordInput.text.length > 0) {
-            loginFailed = false
-            errorBorder.border.width = 0
-            errorBorderTimer.stop()
-        }
+        setLoginError("")
+        errorBorder.border.width = 0
+        errorBorderTimer.stop()
     }
 
     function validateConfiguration() {
@@ -458,20 +613,54 @@ Rectangle {
         }
 
         // Ensure valid indices
-        if (currentUserIndex < 0 || currentUserIndex >= userModel.count) {
-            currentUserIndex = userModel.lastIndex
-        }
-
-        if (currentSessionsIndex < 0 || currentSessionsIndex >= sessionModel.rowCount()) {
-            currentSessionsIndex = sessionModel.lastIndex
-        }
+        ensureValidUserIndex()
+        ensureValidSessionIndex()
     }
 
     // Error border reset timer
     Timer {
         id: errorBorderTimer
         interval: 2000
+        repeat: false
         onTriggered: errorBorder.border.width = 0
+    }
+
+    function ensureValidUserIndex() {
+        const count = userCount()
+        if (count === 0) {
+            currentUserIndex = 0
+            return
+        }
+        currentUserIndex = clampIndex(currentUserIndex, count)
+    }
+
+    function ensureValidSessionIndex() {
+        const sessions = sessionCount()
+        if (sessions === 0) {
+            currentSessionsIndex = 0
+            return
+        }
+        currentSessionsIndex = clampIndex(currentSessionsIndex, sessions)
+    }
+
+    function maxMaskLength() {
+        const availableWidth = Math.max(0, passwordContainer.width - 32)
+        const charWidth = (baseFontSize + 8) * 0.7
+        const capacity = Math.floor(availableWidth / Math.max(1, charWidth))
+        return Math.max(0, capacity)
+    }
+
+    function updatePasswordMask() {
+        const maskLength = Math.min(passwordInput.text.length, maxMaskLength())
+        var mask = ""
+        for (var i = 0; i < maskLength; ++i) {
+            var code = passwordInput.text.charCodeAt(i)
+            if (!isFinite(code)) {
+                code = 0
+            }
+            mask += ipaChars[code % ipaChars.length]
+        }
+        passwordMask = mask
     }
 
     // Custom components
