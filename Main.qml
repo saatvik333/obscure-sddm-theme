@@ -103,6 +103,11 @@ Rectangle {
     readonly property color inputBorderColor: configUtil.colorValue("inputBorderColor", Qt.rgba(1, 1, 1, 0.18))
     readonly property color inputActiveBorderColor: configUtil.colorValue("inputActiveBorderColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.9))
     readonly property color inputBackgroundTint: configUtil.colorValue("inputBackgroundTint", Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.2))
+    readonly property color selectorTextColor: configUtil.colorValue("selectorTextColor", textColor)
+    readonly property color selectorButtonColor: configUtil.colorValue("selectorButtonColor", Qt.rgba(1, 1, 1, 0.12))
+    readonly property color selectorButtonHoverColor: configUtil.colorValue("selectorButtonHoverColor", Qt.rgba(1, 1, 1, 0.2))
+    readonly property color selectorButtonPressedColor: configUtil.colorValue("selectorButtonPressedColor", Qt.rgba(1, 1, 1, 0.32))
+    readonly property color selectorButtonBorderColor: configUtil.colorValue("selectorButtonBorderColor", Qt.rgba(1, 1, 1, 0.25))
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
@@ -152,8 +157,8 @@ Rectangle {
     readonly property string currentSession: getCurrentSession()
     readonly property bool hasMultipleUsers: userCount() > 1
     readonly property bool hasMultipleSessions: sessionCount() > 1
-    readonly property bool userSelectorVisible: showUserSelector && hasMultipleUsers
-    readonly property bool sessionSelectorVisible: showSessionSelector && hasMultipleSessions
+    readonly property bool userSelectorVisible: showUserSelector && userCount() > 0
+    readonly property bool sessionSelectorVisible: showSessionSelector && sessionCount() > 0
     readonly property bool isGlassBackgroundActive: backgroundGlassEnabled && backgroundGlassRadius > 0
 
     anchors.fill: parent
@@ -426,21 +431,25 @@ Rectangle {
 
     Shortcut {
         sequences: ["F2", "Alt+U"]
+        context: Qt.ApplicationShortcut
         onActivated: toggleUserSelector()
     }
 
     Shortcut {
         sequences: ["Ctrl+F2", "Alt+Ctrl+U"]
+        context: Qt.ApplicationShortcut
         onActivated: cycleUser(-1)
     }
 
     Shortcut {
         sequences: ["F3", "Alt+S"]
+        context: Qt.ApplicationShortcut
         onActivated: toggleSessionSelector()
     }
 
     Shortcut {
         sequences: ["Ctrl+F3", "Alt+Ctrl+S"]
+        context: Qt.ApplicationShortcut
         onActivated: sessionsCycleSelectPrev()
     }
 
@@ -607,12 +616,16 @@ Rectangle {
     }
 
     function toggleUserSelector() {
-        if (!hasMultipleUsers) return
+        if (!userModel || userCount() === 0) {
+            return
+        }
         showUserSelector = !showUserSelector
     }
 
     function toggleSessionSelector() {
-        if (!hasMultipleSessions) return
+        if (!sessionModel || sessionCount() === 0) {
+            return
+        }
         showSessionSelector = !showSessionSelector
     }
 
@@ -799,50 +812,84 @@ Rectangle {
             anchors.centerIn: parent
             font.family: baseSelector.fontFamily
             font.pointSize: baseSelector.fontPointSize
-            color: textColor
+            color: selectorTextColor
             text: baseSelector.text
             elide: Text.ElideRight
             maximumLineCount: 1
         }
 
-        Text {
+        Rectangle {
             id: prevButton
+            width: 34
+            height: 34
+            radius: width / 2
             anchors {
                 left: parent.left
-                leftMargin: 12
+                leftMargin: 8
                 verticalCenter: parent.verticalCenter
             }
-            text: baseSelector.prevText
-            color: prevMouseArea.containsMouse ? Qt.lighter(textColor) : textColor
-            font.family: baseSelector.fontFamily
-            font.pointSize: baseSelector.fontPointSize + 2
+            color: prevMouseArea.pressed
+                ? selectorButtonPressedColor
+                : prevMouseArea.containsMouse
+                    ? selectorButtonHoverColor
+                    : selectorButtonColor
+            border.color: selectorButtonBorderColor
+            border.width: 1
+            antialiasing: true
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            Text {
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -2
+                text: baseSelector.prevText
+                color: selectorTextColor
+                font.family: baseSelector.fontFamily
+                font.pointSize: baseSelector.fontPointSize
+            }
 
             MouseArea {
                 id: prevMouseArea
                 anchors.fill: parent
-                anchors.margins: -8
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: baseSelector.prevClicked()
             }
         }
 
-        Text {
+        Rectangle {
             id: nextButton
+            width: 34
+            height: 34
+            radius: width / 2
             anchors {
                 right: parent.right
-                rightMargin: 12
+                rightMargin: 8
                 verticalCenter: parent.verticalCenter
             }
-            text: baseSelector.nextText
-            color: nextMouseArea.containsMouse ? Qt.lighter(textColor) : textColor
-            font.family: baseSelector.fontFamily
-            font.pointSize: baseSelector.fontPointSize + 2
+            color: nextMouseArea.pressed
+                ? selectorButtonPressedColor
+                : nextMouseArea.containsMouse
+                    ? selectorButtonHoverColor
+                    : selectorButtonColor
+            border.color: selectorButtonBorderColor
+            border.width: 1
+            antialiasing: true
+
+            Behavior on color { ColorAnimation { duration: 150 } }
+
+            Text {
+                anchors.centerIn: parent
+                anchors.verticalCenterOffset: -2
+                text: baseSelector.nextText
+                color: selectorTextColor
+                font.family: baseSelector.fontFamily
+                font.pointSize: baseSelector.fontPointSize
+            }
 
             MouseArea {
                 id: nextMouseArea
                 anchors.fill: parent
-                anchors.margins: -8
                 hoverEnabled: true
                 cursorShape: Qt.PointingHandCursor
                 onClicked: baseSelector.nextClicked()
