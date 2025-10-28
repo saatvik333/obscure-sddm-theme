@@ -1,14 +1,14 @@
 # Obscure SDDM Theme
 
-A minimalist yet customizable SDDM theme that uses IPA (International Phonetic Alphabet) characters for password masking, creating an obscure and unique look for your login experience.
-
-![Theme Preview](assets/obscure-sddm-theme.gif)
+A minimal yet customizable SDDM theme that uses IPA (International Phonetic Alphabet) characters for password masking, creating an obscure and unique look for your login experience.
 
 ## Features
 
-- Highly customizable appearance through `theme.conf`
-- Unique IPA character-based password masking
-- Support for custom background images
+- Premium look-and-feel driven by a single accent color and glass tint controls
+- Unique IPA character-based password masking with optional randomized output
+- Built-in password visibility toggle with animated error feedback
+- Customizable background image with blur, tint color, and intensity controls
+- Keyboard-driven user/session selectors styled with circular accent buttons
 
 ## Requirements
 
@@ -46,29 +46,51 @@ Coming soon...
 
 The theme can be customized through the `theme.conf` file. Here are the available options:
 
-### General Appearance
+All customization lives in `theme.conf`. Settings are grouped just like in the file to keep things easy to reason about.
 
-- `textColor`: Color of the text (default: #ffffff)
-- `errorColor`: Color for error messages (default: #ff4444)
-- `backgroundColor`: Background color (default: #000000)
+### Palette
 
-### Font Settings
+| Key | Description | Default |
+| --- | --- | --- |
+| `textColor` | Primary foreground/text color | `#dfe8ff` |
+| `errorColor` | Accent used for error flashes | `#ff6b6b` |
+| `backgroundColor` | Base fill behind the glass layer | `#0f141d` |
 
-- `fontFamily`: Font family to use (default: Inter)
-- `baseFontSize`: Base font size in pixels (default: 14)
+### Background
 
-### Background Settings
+| Key | Description | Default |
+| --- | --- | --- |
+| `backgroundImage` | Path to an optional wallpaper (leave empty for solid color) | _(empty)_ |
+| `backgroundFillMode` | Image sizing mode (`aspectCrop`, `aspectFit`, `stretch`, `tile`, `center`) | `aspectCrop` |
+| `backgroundOpacity` | Opacity of the background image layer | `1` |
+| `backgroundGlassEnabled` | Enable the Gaussian blur glass treatment | `true` |
+| `backgroundGlassIntensity` | Blur strength (0–64) | `42` |
+| `backgroundTintColor` | Base tint color placed over the wallpaper | `#0a0d13` |
+| `backgroundTintIntensity` | Tint opacity (0–1) | `0.52` |
 
-- `backgroundImage`: Path to background image (default: none)
-- `backgroundFillMode`: How to display background image (default: aspectCrop)
-- `backgroundOpacity`: Background image opacity (default: 0.8)
+### Typography
 
-### Login Behavior
+| Key | Description | Default |
+| --- | --- | --- |
+| `fontFamily` | UI font family | `Inter` |
+| `baseFontSize` | Base font size in pixels | `15` |
 
-- `allowEmptyPassword`: Allow empty passwords (default: false)
-- `showUserSelector`: Show user selection menu (default: false)
-- `showSessionSelector`: Show session type selector (default: false)
-- `animationDuration`: Duration of animations in ms (default: 300)
+### Controls & Behaviour
+
+| Key | Description | Default |
+| --- | --- | --- |
+| `controlCornerRadius` | Corner radius for inputs, selectors, and power buttons | `28` |
+| `controlAccentColor` | Single accent color driving button fills/borders | `#2a9df4` |
+| `allowEmptyPassword` | Permit logging in without a password | `false` |
+| `showUserSelector` | Show user selection carousel by default | `false` |
+| `showSessionSelector` | Show session selection carousel by default | `false` |
+| `randomizePasswordMask` | Shuffle IPA mask characters each keystroke | `true` |
+| `animationDuration` | Base animation length in milliseconds | `320` |
+| `passwordFlashLoops` | How many times the password field flashes on error | `2` |
+| `passwordFlashOnDuration` | Duration of each flash highlight (ms) | `200` |
+| `passwordFlashOffDuration` | Duration of the fade-out between flashes (ms) | `260` |
+
+The password visibility toggle honours all these settings automatically—no extra configuration required.
 
 ## Shortcuts
 
