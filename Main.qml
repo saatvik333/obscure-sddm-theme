@@ -92,6 +92,7 @@ Rectangle {
     readonly property real backgroundBlurRadius: configUtil.realValue("backgroundBlurRadius", 0, 0, 64)
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
+    readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
     readonly property var ipaChars: [
     "ɐ", "ɑ", "ɒ", "æ", "ɓ", "ʙ", "β", "ɔ", "ɕ", "ç", "ɗ", "ɖ", "ð", "ʤ", "ə", "ɘ",
     "ɚ", "ɛ", "ɜ", "ɝ", "ɞ", "ɟ", "ʄ", "ɡ", "ɠ", "ɢ", "ʛ", "ɦ", "ɧ", "ħ", "ɥ", "ʜ",
@@ -116,6 +117,7 @@ Rectangle {
     property bool loginFailed: false
     property string loginErrorMessage: ""
     property string passwordMask: ""
+    property var passwordMaskRandomIndices: []
     property int currentSessionsIndex: {
         const sessions = sessionCount()
         if (sessions === 0) {
@@ -276,6 +278,7 @@ Rectangle {
 
                     Keys.onEscapePressed: {
                         clear()
+                        resetPasswordMaskCache()
                         updatePasswordMask()
                     }
                 }
@@ -581,6 +584,7 @@ Rectangle {
 
         isLoginInProgress = false
         passwordInput.clear()
+        resetPasswordMaskCache()
         updatePasswordMask()
         setLoginError("Incorrect credentials. Please try again.")
 
@@ -650,17 +654,52 @@ Rectangle {
         return Math.max(0, capacity)
     }
 
-    function updatePasswordMask() {
-        const maskLength = Math.min(passwordInput.text.length, maxMaskLength())
-        var mask = ""
-        for (var i = 0; i < maskLength; ++i) {
-            var code = passwordInput.text.charCodeAt(i)
-            if (!isFinite(code)) {
-                code = 0
-            }
-            mask += ipaChars[code % ipaChars.length]
+    function ensureRandomMaskCapacity(length) {
+        if (!Array.isArray(passwordMaskRandomIndices)) {
+            passwordMaskRandomIndices = []
         }
-        passwordMask = mask
+        if (length <= 0) {
+            passwordMaskRandomIndices = []
+            return
+        }
+        while (passwordMaskRandomIndices.length < length) {
+            passwordMaskRandomIndices.push(Math.floor(Math.random() * ipaChars.length))
+        }
+        if (passwordMaskRandomIndices.length > length) {
+            passwordMaskRandomIndices.splice(length, passwordMaskRandomIndices.length - length)
+        }
+    }
+
+    function resetPasswordMaskCache() {
+        passwordMaskRandomIndices = []
+    }
+
+    function updatePasswordMask() {
+        const textLength = passwordInput.text.length
+        const maskLength = Math.min(textLength, maxMaskLength())
+
+        if (randomizePasswordMask) {
+            ensureRandomMaskCapacity(textLength)
+            var randomizedMask = ""
+            for (var randomIndex = 0; randomIndex < maskLength; ++randomIndex) {
+                randomizedMask += ipaChars[passwordMaskRandomIndices[randomIndex] % ipaChars.length]
+            }
+            passwordMask = randomizedMask
+        } else {
+            var deterministicMask = ""
+            for (var index = 0; index < maskLength; ++index) {
+                var code = passwordInput.text.charCodeAt(index)
+                if (!isFinite(code)) {
+                    code = 0
+                }
+                deterministicMask += ipaChars[code % ipaChars.length]
+            }
+            passwordMask = deterministicMask
+        }
+
+        if (textLength === 0) {
+            resetPasswordMaskCache()
+        }
     }
 
     // Custom components
