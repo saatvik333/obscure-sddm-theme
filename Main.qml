@@ -843,11 +843,26 @@ Rectangle {
             passwordMaskRandomIndices = []
             return
         }
+
+        const now = Date.now() % 2147483647
+
         while (passwordMaskRandomIndices.length < length) {
-            passwordMaskRandomIndices.push(Math.floor(Math.random() * ipaChars.length))
+            const position = passwordMaskRandomIndices.length
+            const seed = (now + position * 3517 + passwordInput.length * 811) % 2147483647
+            const noise = ((seed ^ (seed >>> 15)) * 16807 + position * 69069 + now) % ipaChars.length
+            passwordMaskRandomIndices.push(Math.abs(noise))
         }
         if (passwordMaskRandomIndices.length > length) {
             passwordMaskRandomIndices.splice(length, passwordMaskRandomIndices.length - length)
+        }
+
+        // Introduce a light shuffle on the newest tail to enhance variation
+        for (var i = Math.max(0, length - 4); i < length - 1; ++i) {
+            const jSeed = (now + i * 1103515245) % length
+            const j = Math.max(0, Math.min(length - 1, jSeed))
+            const tmp = passwordMaskRandomIndices[i]
+            passwordMaskRandomIndices[i] = passwordMaskRandomIndices[j]
+            passwordMaskRandomIndices[j] = tmp
         }
     }
 
