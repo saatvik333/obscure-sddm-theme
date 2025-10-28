@@ -139,6 +139,7 @@ Rectangle {
     property string loginErrorMessage: ""
     property string passwordMask: ""
     property var passwordMaskRandomIndices: []
+    property bool passwordVisible: false
     property int currentSessionsIndex: {
         const sessions = sessionCount()
         if (sessions === 0) {
@@ -266,10 +267,67 @@ Rectangle {
                 }
 
                 // Hidden text input for actual password
+                Rectangle {
+                    id: passwordToggleButton
+                    width: 36
+                    height: 36
+                    radius: width / 2
+                    anchors {
+                        right: parent.right
+                        rightMargin: 12
+                        verticalCenter: parent.verticalCenter
+                    }
+                    color: toggleMouse.pressed
+                        ? controlFillPressed
+                        : passwordVisible
+                            ? controlFillFocus
+                            : toggleMouse.containsMouse
+                                ? controlFillHover
+                                : controlFillBase
+                    border.color: passwordVisible ? controlBorderActive : controlBorderBase
+                    border.width: 1
+                    antialiasing: true
+                    z: 3
+
+                    Behavior on color { ColorAnimation { duration: 150 } }
+
+                    Image {
+                        id: passwordToggleIcon
+                        anchors.centerIn: parent
+                        source: passwordVisible ? "assets/hide.svg" : "assets/show.svg"
+                        sourceSize: Qt.size(18, 18)
+                        asynchronous: true
+                        smooth: true
+                        visible: false
+                    }
+
+                    ColorOverlay {
+                        anchors.fill: passwordToggleIcon
+                        source: passwordToggleIcon
+                        color: Qt.rgba(textColor.r, textColor.g, textColor.b, toggleMouse.containsMouse || passwordVisible ? 0.92 : 0.78)
+                    }
+
+                    MouseArea {
+                        id: toggleMouse
+                        anchors.fill: parent
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: togglePasswordVisibility()
+                    }
+                }
+
                 TextInput {
                     id: passwordInput
-                    anchors.fill: parent
-                    anchors.margins: 16
+                    anchors {
+                        left: parent.left
+                        leftMargin: 16
+                        right: passwordToggleButton.left
+                        rightMargin: 12
+                        top: parent.top
+                        topMargin: 16
+                        bottom: parent.bottom
+                        bottomMargin: 16
+                    }
 
                     font.family: fontFamily
                     font.pixelSize: baseFontSize + 8
@@ -305,8 +363,16 @@ Rectangle {
                 // Visible display of IPA characters
                 Text {
                     id: passwordDisplay
-                    anchors.fill: parent
-                    anchors.margins: 16
+                    anchors {
+                        left: parent.left
+                        leftMargin: 16
+                        right: passwordToggleButton.left
+                        rightMargin: 12
+                        top: parent.top
+                        topMargin: 16
+                        bottom: parent.bottom
+                        bottomMargin: 16
+                    }
 
                     font.family: fontFamily
                     font.pixelSize: baseFontSize + 8
@@ -358,7 +424,7 @@ Rectangle {
                     acceptedButtons: Qt.NoButton
                     cursorShape: Qt.IBeamCursor
                     onEntered: passwordInput.forceActiveFocus()
-                    z: 2
+                    z: 0
                 }
             }
 
@@ -689,6 +755,7 @@ Rectangle {
 
         isLoginInProgress = false
         passwordInput.clear()
+        passwordVisible = false
         resetPasswordMaskCache()
         updatePasswordMask()
         setLoginError("", true)
@@ -702,12 +769,14 @@ Rectangle {
     function handleLoginSucceeded() {
         isLoginInProgress = false
         setLoginError("")
+        passwordVisible = false
         passwordErrorFlash.stop()
         passwordErrorOverlay.opacity = 0
     }
 
     function clearError() {
         setLoginError("")
+        passwordVisible = false
         passwordErrorFlash.stop()
         passwordErrorOverlay.opacity = 0
     }
@@ -778,6 +847,24 @@ Rectangle {
         const capacity = maxMaskLength()
         const maskLength = Math.min(textLength, capacity)
 
+        if (capacity <= 0) {
+            passwordMask = ""
+            if (textLength === 0) {
+                resetPasswordMaskCache()
+            }
+            return
+        }
+
+        if (passwordVisible) {
+            const startIndex = Math.max(0, textLength - capacity)
+            const visibleTail = passwordInput.text.slice(startIndex, textLength)
+            passwordMask = centerMask(visibleTail, capacity)
+            if (textLength === 0) {
+                resetPasswordMaskCache()
+            }
+            return
+        }
+
         if (randomizePasswordMask) {
             ensureRandomMaskCapacity(textLength)
             var randomizedMask = ""
@@ -825,6 +912,11 @@ Rectangle {
             centered += " "
         }
         return centered
+    }
+
+    function togglePasswordVisibility() {
+        passwordVisible = !passwordVisible
+        updatePasswordMask()
     }
 
     // Custom components
