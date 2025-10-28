@@ -331,9 +331,9 @@ Rectangle {
                         right: parent.right
                         rightMargin: 16 + passwordToggleButton.width / 2
                         top: parent.top
-                        topMargin: 16
+                        topMargin: 10
                         bottom: parent.bottom
-                        bottomMargin: 16
+                        bottomMargin: 10
                     }
 
                     font.family: fontFamily
@@ -376,9 +376,9 @@ Rectangle {
                         right: parent.right
                         rightMargin: 16 + passwordToggleButton.width / 2
                         top: parent.top
-                        topMargin: 16
+                        topMargin: 10
                         bottom: parent.bottom
-                        bottomMargin: 16
+                        bottomMargin: 10
                     }
 
                     font.family: fontFamily
