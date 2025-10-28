@@ -99,15 +99,17 @@ Rectangle {
         : 0
     readonly property color backgroundTintColor: configUtil.colorValue("backgroundTint", Qt.rgba(0, 0, 0, 0))
     readonly property bool hasBackgroundTint: backgroundTintColor.a > 0.001
-    readonly property real inputCornerRadius: configUtil.realValue("inputCornerRadius", 10, 0, 48)
-    readonly property color inputBorderColor: configUtil.colorValue("inputBorderColor", Qt.rgba(1, 1, 1, 0.18))
-    readonly property color inputActiveBorderColor: configUtil.colorValue("inputActiveBorderColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.9))
-    readonly property color inputBackgroundTint: configUtil.colorValue("inputBackgroundTint", Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.2))
-    readonly property color selectorTextColor: configUtil.colorValue("selectorTextColor", textColor)
-    readonly property color selectorButtonColor: configUtil.colorValue("selectorButtonColor", Qt.rgba(1, 1, 1, 0.12))
-    readonly property color selectorButtonHoverColor: configUtil.colorValue("selectorButtonHoverColor", Qt.rgba(1, 1, 1, 0.2))
-    readonly property color selectorButtonPressedColor: configUtil.colorValue("selectorButtonPressedColor", Qt.rgba(1, 1, 1, 0.32))
-    readonly property color selectorButtonBorderColor: configUtil.colorValue("selectorButtonBorderColor", Qt.rgba(1, 1, 1, 0.25))
+    readonly property color controlAccentColor: configUtil.colorValue("controlAccentColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.8))
+    readonly property real controlCornerRadius: configUtil.realValue("controlCornerRadius", 16, 0, 64)
+    readonly property color controlFillBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.2)
+    readonly property color controlFillHover: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.28)
+    readonly property color controlFillFocus: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.34)
+    readonly property color controlFillPressed: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.42)
+    readonly property color controlBorderBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.26)
+    readonly property color controlBorderActive: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.62)
+    readonly property int passwordFlashLoops: Math.max(1, configUtil.intValue("passwordFlashLoops", 2, 1, 6))
+    readonly property int passwordFlashOnDuration: Math.max(30, configUtil.intValue("passwordFlashOnDuration", 160, 20, 1000))
+    readonly property int passwordFlashOffDuration: Math.max(30, configUtil.intValue("passwordFlashOffDuration", 220, 20, 1000))
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
@@ -214,23 +216,7 @@ Rectangle {
 
     }
 
-    // Error border overlay
-    Rectangle {
-        id: errorBorder
-        anchors.fill: parent
-        color: "transparent"
-        border.color: errorColor
-        border.width: 0
-        radius: 8
-        opacity: 0.8
-
-        Behavior on border.width {
-            NumberAnimation {
-                duration: animationDuration
-                easing.type: Easing.OutCubic
-            }
-        }
-    }
+    // Removed screen-edge flash; retained premium minimalism
 
     // Main content container
     Item {
@@ -261,13 +247,13 @@ Rectangle {
                 id: passwordContainer
                 width: parent.width
                 height: 56
-                radius: inputCornerRadius
-                color: passwordMouseArea.pressed
-                    ? Qt.rgba(inputBackgroundTint.r, inputBackgroundTint.g, inputBackgroundTint.b, Math.min(1, inputBackgroundTint.a * 1.4))
+                radius: controlCornerRadius
+                color: passwordInput.activeFocus
+                    ? controlFillFocus
                     : passwordMouseArea.containsMouse
-                        ? Qt.rgba(inputBackgroundTint.r, inputBackgroundTint.g, inputBackgroundTint.b, Math.min(1, inputBackgroundTint.a * 1.2))
-                        : inputBackgroundTint
-                border.color: passwordInput.activeFocus ? inputActiveBorderColor : inputBorderColor
+                        ? controlFillHover
+                        : controlFillBase
+                border.color: passwordInput.activeFocus ? controlBorderActive : controlBorderBase
                 border.width: 1
                 antialiasing: true
 
@@ -332,6 +318,39 @@ Rectangle {
                     onWidthChanged: updatePasswordMask()
                 }
 
+                Rectangle {
+                    id: passwordErrorOverlay
+                    anchors.fill: parent
+                    radius: controlCornerRadius
+                    border.color: errorColor
+                    border.width: 2
+                    color: "transparent"
+                    opacity: 0
+                    visible: opacity > 0
+                    z: 1
+                }
+
+                SequentialAnimation {
+                    id: passwordErrorFlash
+                    running: false
+                    loops: passwordFlashLoops
+                    NumberAnimation {
+                        target: passwordErrorOverlay
+                        property: "opacity"
+                        to: 1
+                        duration: passwordFlashOnDuration
+                        easing.type: Easing.OutQuad
+                    }
+                    NumberAnimation {
+                        target: passwordErrorOverlay
+                        property: "opacity"
+                        to: 0
+                        duration: passwordFlashOffDuration
+                        easing.type: Easing.InQuad
+                    }
+                    onStopped: passwordErrorOverlay.opacity = 0
+                }
+
                 MouseArea {
                     id: passwordMouseArea
                     anchors.fill: parent
@@ -339,6 +358,7 @@ Rectangle {
                     acceptedButtons: Qt.NoButton
                     cursorShape: Qt.IBeamCursor
                     onEntered: passwordInput.forceActiveFocus()
+                    z: 2
                 }
             }
 
@@ -492,10 +512,14 @@ Rectangle {
     }
 
     // Helper functions
-    function setLoginError(message) {
+    function setLoginError(message, overrideFlag) {
         const normalized = typeof message === "string" ? message.trim() : ""
         loginErrorMessage = normalized
-        loginFailed = normalized.length > 0
+        if (typeof overrideFlag === "boolean") {
+            loginFailed = overrideFlag
+        } else {
+            loginFailed = normalized.length > 0
+        }
     }
 
     function userCount() {
@@ -667,23 +691,25 @@ Rectangle {
         passwordInput.clear()
         resetPasswordMaskCache()
         updatePasswordMask()
-        setLoginError("Incorrect credentials. Please try again.")
+        setLoginError("", true)
 
-        errorBorder.border.width = 3
-        errorBorderTimer.restart()
+        passwordErrorFlash.stop()
+        passwordErrorOverlay.opacity = 0
+        passwordErrorFlash.start()
         passwordInput.forceActiveFocus()
     }
 
     function handleLoginSucceeded() {
         isLoginInProgress = false
         setLoginError("")
-        errorBorder.border.width = 0
+        passwordErrorFlash.stop()
+        passwordErrorOverlay.opacity = 0
     }
 
     function clearError() {
         setLoginError("")
-        errorBorder.border.width = 0
-        errorBorderTimer.stop()
+        passwordErrorFlash.stop()
+        passwordErrorOverlay.opacity = 0
     }
 
     function validateConfiguration() {
@@ -700,14 +726,6 @@ Rectangle {
         // Ensure valid indices
         ensureValidUserIndex()
         ensureValidSessionIndex()
-    }
-
-    // Error border reset timer
-    Timer {
-        id: errorBorderTimer
-        interval: 2000
-        repeat: false
-        onTriggered: errorBorder.border.width = 0
     }
 
     function ensureValidUserIndex() {
@@ -757,30 +775,56 @@ Rectangle {
 
     function updatePasswordMask() {
         const textLength = passwordInput.text.length
-        const maskLength = Math.min(textLength, maxMaskLength())
+        const capacity = maxMaskLength()
+        const maskLength = Math.min(textLength, capacity)
 
         if (randomizePasswordMask) {
             ensureRandomMaskCapacity(textLength)
             var randomizedMask = ""
+            const startIndex = Math.max(0, textLength - maskLength)
             for (var randomIndex = 0; randomIndex < maskLength; ++randomIndex) {
-                randomizedMask += ipaChars[passwordMaskRandomIndices[randomIndex] % ipaChars.length]
+                randomizedMask += ipaChars[passwordMaskRandomIndices[startIndex + randomIndex] % ipaChars.length]
             }
-            passwordMask = randomizedMask
+            passwordMask = centerMask(randomizedMask, capacity)
         } else {
             var deterministicMask = ""
+            const startIndex = Math.max(0, textLength - maskLength)
             for (var index = 0; index < maskLength; ++index) {
-                var code = passwordInput.text.charCodeAt(index)
+                var code = passwordInput.text.charCodeAt(startIndex + index)
                 if (!isFinite(code)) {
                     code = 0
                 }
                 deterministicMask += ipaChars[code % ipaChars.length]
             }
-            passwordMask = deterministicMask
+            passwordMask = centerMask(deterministicMask, capacity)
         }
 
         if (textLength === 0) {
             resetPasswordMaskCache()
         }
+    }
+
+    function centerMask(maskString, capacity) {
+        if (capacity <= 0) {
+            return ""
+        }
+
+        const lengthDifference = capacity - maskString.length
+        if (lengthDifference <= 0) {
+            return maskString
+        }
+
+        const padding = Math.floor(lengthDifference / 2)
+        const needsExtra = lengthDifference % 2
+        var paddingChars = ""
+        for (var padIndex = 0; padIndex < padding; ++padIndex) {
+            paddingChars += " "
+        }
+        var centered = paddingChars + maskString + paddingChars
+        if (needsExtra) {
+            centered += " "
+        }
+        return centered
     }
 
     // Custom components
@@ -812,7 +856,7 @@ Rectangle {
             anchors.centerIn: parent
             font.family: baseSelector.fontFamily
             font.pointSize: baseSelector.fontPointSize
-            color: selectorTextColor
+            color: textColor
             text: baseSelector.text
             elide: Text.ElideRight
             maximumLineCount: 1
@@ -829,11 +873,11 @@ Rectangle {
                 verticalCenter: parent.verticalCenter
             }
             color: prevMouseArea.pressed
-                ? selectorButtonPressedColor
+                ? controlFillPressed
                 : prevMouseArea.containsMouse
-                    ? selectorButtonHoverColor
-                    : selectorButtonColor
-            border.color: selectorButtonBorderColor
+                    ? controlFillHover
+                    : controlFillBase
+            border.color: controlBorderBase
             border.width: 1
             antialiasing: true
 
@@ -843,7 +887,7 @@ Rectangle {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: -2
                 text: baseSelector.prevText
-                color: selectorTextColor
+                color: textColor
                 font.family: baseSelector.fontFamily
                 font.pointSize: baseSelector.fontPointSize
             }
@@ -868,11 +912,11 @@ Rectangle {
                 verticalCenter: parent.verticalCenter
             }
             color: nextMouseArea.pressed
-                ? selectorButtonPressedColor
+                ? controlFillPressed
                 : nextMouseArea.containsMouse
-                    ? selectorButtonHoverColor
-                    : selectorButtonColor
-            border.color: selectorButtonBorderColor
+                    ? controlFillHover
+                    : controlFillBase
+            border.color: controlBorderBase
             border.width: 1
             antialiasing: true
 
@@ -882,7 +926,7 @@ Rectangle {
                 anchors.centerIn: parent
                 anchors.verticalCenterOffset: -2
                 text: baseSelector.nextText
-                color: selectorTextColor
+                color: textColor
                 font.family: baseSelector.fontFamily
                 font.pointSize: baseSelector.fontPointSize
             }
