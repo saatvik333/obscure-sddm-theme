@@ -15,7 +15,11 @@ Rectangle {
             if (typeof value !== "string") {
                 return fallback
             }
-            const trimmed = value.trim()
+            var trimmed = value.trim()
+            const commentIndex = trimmed.search(/\s#/)
+            if (commentIndex >= 0) {
+                trimmed = trimmed.slice(0, commentIndex).trim()
+            }
             return trimmed.length > 0 ? trimmed : fallback
         }
 
@@ -93,6 +97,7 @@ Rectangle {
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
+    readonly property url backgroundImageSource: resolveImageSource(configUtil.stringValue("backgroundImage", ""))
     readonly property var ipaChars: [
     "ɐ", "ɑ", "ɒ", "æ", "ɓ", "ʙ", "β", "ɔ", "ɕ", "ç", "ɗ", "ɖ", "ð", "ʤ", "ə", "ɘ",
     "ɚ", "ɛ", "ɜ", "ɝ", "ɞ", "ɟ", "ʄ", "ɡ", "ɠ", "ɢ", "ʛ", "ɦ", "ɧ", "ħ", "ɥ", "ʜ",
@@ -153,8 +158,8 @@ Rectangle {
         Image {
             id: backgroundImage
             anchors.fill: parent
-            source: configUtil.stringValue("backgroundImage", "")
-            visible: source.length > 0
+            source: backgroundImageSource
+            visible: source !== "" && status === Image.Ready
 
             fillMode: {
                 if (source === "") return Image.Stretch;
@@ -183,7 +188,7 @@ Rectangle {
             source: backgroundImage
             radius: isBackgroundBlurActive ? backgroundBlurRadius : 0
             transparentBorder: true
-            visible: isBackgroundBlurActive && backgroundImage.visible
+            visible: isBackgroundBlurActive && backgroundImage.status === Image.Ready
             opacity: backgroundOpacity
         }
     }
@@ -510,6 +515,37 @@ Rectangle {
             case "aspectCrop":
             default: return Image.PreserveAspectCrop
         }
+    }
+
+    function resolveImageSource(path) {
+        if (typeof path !== "string") {
+            return ""
+        }
+
+        var normalized = path.trim()
+        if (!normalized.length) {
+            return ""
+        }
+
+        if (normalized.startsWith("file:/") || normalized.indexOf("://") !== -1 || normalized.startsWith("qrc:")) {
+            return normalized
+        }
+
+        if (normalized.startsWith("~")) {
+            console.warn("Background image path uses '~' which cannot be expanded automatically:", normalized)
+            return ""
+        }
+
+        if (/^[a-zA-Z]:[\\/]/.test(normalized)) {
+            const normalizedWindowsPath = normalized.replace(/\\/g, "/")
+            return "file:///" + normalizedWindowsPath
+        }
+
+        if (normalized.startsWith("/")) {
+            return "file://" + normalized
+        }
+
+        return Qt.resolvedUrl(normalized)
     }
 
     function cycleUser(direction) {
