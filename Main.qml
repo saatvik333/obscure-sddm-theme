@@ -92,18 +92,15 @@ Rectangle {
     readonly property int animationDuration: configUtil.intValue("animationDuration", 300, 0, 5000)
     readonly property int sessionsFontSize: configUtil.intValue("sessionsFontSize", 24, 14, 64)
     readonly property real backgroundOpacity: configUtil.realValue("backgroundOpacity", 0.8, 0, 1)
-    readonly property bool backgroundBlurEnabled: configUtil.boolValue("backgroundBlurEnabled", false)
-    readonly property real backgroundBlurRadius: configUtil.realValue("backgroundBlurRadius", 0, 0, 64)
+    readonly property bool backgroundGlassEnabled: configUtil.boolValue("backgroundGlassEnabled", false)
+    readonly property real backgroundGlassIntensity: configUtil.realValue("backgroundGlassIntensity", 50, 0, 100)
+    readonly property real backgroundGlassRadius: backgroundGlassEnabled
+        ? configUtil.clamp(Math.round(16 + (backgroundGlassIntensity / 100) * 48), 0, 64)
+        : 0
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
     readonly property url backgroundImageSource: resolveImageSource(configUtil.stringValue("backgroundImage", ""))
-    readonly property bool glassmorphismEnabled: configUtil.boolValue("glassmorphismEnabled", true)
-    readonly property real glassBlurRadius: configUtil.realValue("glassBlurRadius", 36, 0, 64)
-    readonly property real glassCornerRadius: configUtil.realValue("glassCornerRadius", 26, 0, 64)
-    readonly property color glassTintColor: Qt.rgba(1, 1, 1, 0.12)
-    readonly property color glassBorderColor: Qt.rgba(1, 1, 1, 0.28)
-    readonly property color glassHighlightColor: Qt.rgba(1, 1, 1, 0.32)
     readonly property var ipaChars: [
     "ɐ", "ɑ", "ɒ", "æ", "ɓ", "ʙ", "β", "ɔ", "ɕ", "ç", "ɗ", "ɖ", "ð", "ʤ", "ə", "ɘ",
     "ɚ", "ɛ", "ɜ", "ɝ", "ɞ", "ɟ", "ʄ", "ɡ", "ɠ", "ɢ", "ʛ", "ɦ", "ɧ", "ħ", "ɥ", "ʜ",
@@ -151,7 +148,7 @@ Rectangle {
     readonly property bool hasMultipleSessions: sessionCount() > 1
     readonly property bool userSelectorVisible: showUserSelector && hasMultipleUsers
     readonly property bool sessionSelectorVisible: showSessionSelector && hasMultipleSessions
-    readonly property bool isBackgroundBlurActive: backgroundBlurEnabled && backgroundBlurRadius > 0 && !glassmorphismEnabled
+    readonly property bool isGlassBackgroundActive: backgroundGlassEnabled && backgroundGlassRadius > 0
 
     anchors.fill: parent
 
@@ -165,7 +162,7 @@ Rectangle {
             id: backgroundImage
             anchors.fill: parent
             source: backgroundImageSource
-            visible: source !== "" && status === Image.Ready
+            visible: source !== ""
 
             fillMode: {
                 if (source === "") return Image.Stretch;
@@ -180,7 +177,7 @@ Rectangle {
             smooth: true
             cache: true
             asynchronous: true
-            opacity: isBackgroundBlurActive ? 0 : backgroundOpacity
+            opacity: isGlassBackgroundActive && status === Image.Ready ? 0 : backgroundOpacity
 
             onStatusChanged: {
                 if (status === Image.Error) {
@@ -192,11 +189,12 @@ Rectangle {
         FastBlur {
             anchors.fill: backgroundImage
             source: backgroundImage
-            radius: isBackgroundBlurActive ? backgroundBlurRadius : 0
+            radius: backgroundGlassRadius
             transparentBorder: true
-            visible: isBackgroundBlurActive && backgroundImage.status === Image.Ready
+            visible: isGlassBackgroundActive && backgroundImage.status === Image.Ready
             opacity: backgroundOpacity
         }
+
     }
 
     // Error border overlay
@@ -222,165 +220,125 @@ Rectangle {
         id: mainContent
         anchors.fill: parent
 
-        // Login container with glassmorphism panel
-        Item {
-            id: loginPanel
-            width: Math.min(420, parent.width * 0.7)
-            height: loginContainer.implicitHeight + glassPanelPadding * 2
+        // Login container
+        Column {
+            id: loginContainer
+            width: Math.min(400, parent.width * 0.7)
             anchors.centerIn: parent
+            spacing: 28
 
-            readonly property bool glassPanelActive: glassmorphismEnabled && (backgroundImage.status === Image.Ready || backgroundImage.status === Image.Error || backgroundImage.source === "")
-            readonly property int glassPanelPadding: glassPanelActive ? 24 : 0
-
-            DropShadow {
-                id: loginPanelShadow
-                anchors.fill: glassSurface
-                source: glassSurface
-                visible: glassSurface.visible
-                horizontalOffset: 0
-                verticalOffset: 18
-                samples: 24
-                radius: 32
-                spread: 0.08
-                color: Qt.rgba(0, 0, 0, 0.35)
-                transparentBorder: true
-                z: -3
+            // User selector
+            UserSelector {
+                id: userSelector
+                visible: userSelectorVisible
+                width: parent.width
+                currentUser: currentUsername
+                onUserChanged: cycleUser(direction)
+                height: 40
+                fontFamily: root.fontFamily
+                fontPointSize: root.baseFontSize + 2
             }
 
-            GlassPanel {
-                id: glassSurface
-                anchors.fill: parent
-                visible: loginPanel.glassPanelActive
-                target: backgroundLayer
-                blurRadius: glassBlurRadius
-                tintColor: glassTintColor
-                borderColor: glassBorderColor
-                highlightColor: glassHighlightColor
-                cornerRadius: glassCornerRadius
-                z: -2
-            }
+            // Password input
+            Rectangle {
+                id: passwordContainer
+                width: parent.width
+                height: 56
+                color: Qt.rgba(1, 1, 1, 0)
+                radius: 10
+                border.color: passwordInput.activeFocus ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.9) : Qt.rgba(1, 1, 1, 0.18)
+                border.width: 1
 
-            Column {
-                id: loginContainer
-                width: Math.max(0, parent.width - loginPanel.glassPanelPadding * 2)
-                anchors.horizontalCenter: parent.horizontalCenter
-                anchors.top: parent.top
-                anchors.topMargin: loginPanel.glassPanelPadding
-                spacing: 28
+                onWidthChanged: updatePasswordMask()
 
-                // User selector
-                UserSelector {
-                    id: userSelector
-                    visible: userSelectorVisible
-                    width: parent.width
-                    currentUser: currentUsername
-                    onUserChanged: cycleUser(direction)
-                    height: 40
-                    fontFamily: root.fontFamily
-                    fontPointSize: root.baseFontSize + 2
+                Behavior on border.color {
+                    ColorAnimation { duration: 200 }
                 }
 
-                // Password input
-                Rectangle {
-                    id: passwordContainer
-                    width: parent.width
-                    height: 56
-                    color: Qt.rgba(1, 1, 1, 0)
-                    radius: 12
-                    border.color: passwordInput.activeFocus ? Qt.rgba(textColor.r, textColor.g, textColor.b, 0.9) : Qt.rgba(1, 1, 1, 0.18)
-                    border.width: 1
+                // Hidden text input for actual password
+                TextInput {
+                    id: passwordInput
+                    anchors.fill: parent
+                    anchors.margins: 16
 
-                    onWidthChanged: updatePasswordMask()
-
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-
-                    // Hidden text input for actual password
-                    TextInput {
-                        id: passwordInput
-                        anchors.fill: parent
-                        anchors.margins: 16
-
-                        font.family: fontFamily
-                        font.pixelSize: baseFontSize + 8
-                        color: "transparent"
-                        echoMode: TextInput.NoEcho
-                        selectByMouse: false
-                        selectionColor: "transparent"
-                        selectedTextColor: "transparent"
-                        cursorVisible: false
-                        cursorDelegate: Item {
-                            visible: false
-                            width: 0
-                            height: 0
-                        }
-                        focus: true
-                        enabled: !isLoginInProgress
-
-                        onAccepted: attemptLogin()
-                        onTextChanged: {
-                            if (loginFailed) {
-                                clearError()
-                            }
-                            updatePasswordMask()
-                        }
-
-                        Keys.onEscapePressed: {
-                            clear()
-                            resetPasswordMaskCache()
-                            updatePasswordMask()
-                        }
-                    }
-
-                    // Visible display of IPA characters
-                    Text {
-                        id: passwordDisplay
-                        anchors.fill: parent
-                        anchors.margins: 16
-
-                        font.family: fontFamily
-                        font.pixelSize: baseFontSize + 8
-                        color: textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        text: passwordMask
-                        clip: true  // Ensure text doesn't overflow
-                        onWidthChanged: updatePasswordMask()
-                    }
-                }
-
-                // Error message
-                Text {
-                    id: errorMessage
-                    width: parent.width
-                    visible: loginFailed && loginErrorMessage.length > 0
-                    text: loginErrorMessage
-                    color: errorColor
                     font.family: fontFamily
-                    font.pixelSize: baseFontSize - 1
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.WordWrap
+                    font.pixelSize: baseFontSize + 8
+                    color: "transparent"
+                    echoMode: TextInput.NoEcho
+                    selectByMouse: false
+                    selectionColor: "transparent"
+                    selectedTextColor: "transparent"
+                    cursorVisible: false
+                    cursorDelegate: Item {
+                        visible: false
+                        width: 0
+                        height: 0
+                    }
+                    focus: true
+                    enabled: !isLoginInProgress
 
-                    opacity: visible ? 1 : 0
-                    Behavior on opacity {
-                        NumberAnimation { duration: animationDuration }
+                    onAccepted: attemptLogin()
+                    onTextChanged: {
+                        if (loginFailed) {
+                            clearError()
+                        }
+                        updatePasswordMask()
+                    }
+
+                    Keys.onEscapePressed: {
+                        clear()
+                        resetPasswordMaskCache()
+                        updatePasswordMask()
                     }
                 }
 
-                // Session selector
-                SessionSelector {
-                    id: sessionSelector
-                    text: currentSession
-                    visible: sessionSelectorVisible
-                    width: parent.width
-                    height: 40
-                    fontFamily: root.fontFamily
-                    fontPointSize: root.baseFontSize + 2
+                // Visible display of IPA characters
+                Text {
+                    id: passwordDisplay
+                    anchors.fill: parent
+                    anchors.margins: 16
 
-                    onPrevClicked: sessionsCycleSelectPrev()
-                    onNextClicked: sessionsCycleSelectNext()
+                    font.family: fontFamily
+                    font.pixelSize: baseFontSize + 8
+                    color: textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: passwordMask
+                    clip: true  // Ensure text doesn't overflow
+                    onWidthChanged: updatePasswordMask()
                 }
+            }
+
+            // Error message
+            Text {
+                id: errorMessage
+                width: parent.width
+                visible: loginFailed && loginErrorMessage.length > 0
+                text: loginErrorMessage
+                color: errorColor
+                font.family: fontFamily
+                font.pixelSize: baseFontSize - 1
+                horizontalAlignment: Text.AlignHCenter
+                wrapMode: Text.WordWrap
+
+                opacity: visible ? 1 : 0
+                Behavior on opacity {
+                    NumberAnimation { duration: animationDuration }
+                }
+            }
+
+            // Session selector
+            SessionSelector {
+                id: sessionSelector
+                text: currentSession
+                visible: sessionSelectorVisible
+                width: parent.width
+                height: 40
+                fontFamily: root.fontFamily
+                fontPointSize: root.baseFontSize + 2
+
+                onPrevClicked: sessionsCycleSelectPrev()
+                onNextClicked: sessionsCycleSelectNext()
             }
         }
 
@@ -785,77 +743,6 @@ Rectangle {
     }
 
     // Custom components
-    component GlassPanel: Item {
-        id: glassPanel
-
-        property Item target: null
-        property real blurRadius: 32
-        property color tintColor: Qt.rgba(1, 1, 1, 0.1)
-        property color borderColor: Qt.rgba(1, 1, 1, 0.25)
-        property color highlightColor: Qt.rgba(1, 1, 1, 0.3)
-        property real cornerRadius: 24
-
-        z: -1
-        clip: false
-
-        function calculateSourceRect() {
-            if (!target) {
-                return Qt.rect(0, 0, width, height)
-            }
-            const topLeft = glassPanel.mapToItem(target, 0, 0)
-            return Qt.rect(topLeft.x, topLeft.y, width, height)
-        }
-
-        ShaderEffectSource {
-            id: glassSource
-            anchors.fill: parent
-            visible: glassPanel.visible && glassPanel.target
-            live: true
-            recursive: false
-            sourceItem: glassPanel.target
-            sourceRect: {
-                glassPanel.x; glassPanel.y;
-                return glassPanel.calculateSourceRect()
-            }
-        }
-
-        FastBlur {
-            anchors.fill: parent
-            source: glassSource
-            radius: blurRadius
-            transparentBorder: true
-            visible: glassSource.visible
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: cornerRadius
-            color: tintColor
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: cornerRadius
-            color: "transparent"
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: Qt.rgba(highlightColor.r, highlightColor.g, highlightColor.b, Math.min(1, highlightColor.a + 0.1)) }
-                GradientStop { position: 0.4; color: Qt.rgba(highlightColor.r, highlightColor.g, highlightColor.b, highlightColor.a * 0.35) }
-                GradientStop { position: 1.0; color: Qt.rgba(highlightColor.r, highlightColor.g, highlightColor.b, 0.0) }
-            }
-            opacity: 0.7
-            visible: glassSource.visible
-        }
-
-        Rectangle {
-            anchors.fill: parent
-            radius: cornerRadius
-            color: "transparent"
-            border.color: borderColor
-            border.width: 1
-            opacity: 0.8
-        }
-    }
-
     component BaseSelector: Item {
         id: baseSelector
 
