@@ -4,7 +4,7 @@ A minimal yet customizable SDDM theme that uses IPA (International Phonetic Alph
 
 ## Features
 
-- Premium look-and-feel driven by a single accent color and glass tint controls
+- Clean look-and-feel driven by a accent colors and glass tint controls
 - Unique IPA character-based password masking with optional randomized output
 - Built-in password visibility toggle with animated error feedback
 - Customizable background image with blur, tint color, and intensity controls
@@ -52,9 +52,9 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 
 | Key | Description | Default |
 | --- | --- | --- |
-| `textColor` | Primary foreground/text color | `#dfe8ff` |
-| `errorColor` | Accent used for error flashes | `#ff6b6b` |
-| `backgroundColor` | Base fill behind the glass layer | `#0f141d` |
+| `textColor` | Primary foreground/text color | `#cdd6f4` |
+| `errorColor` | Accent used for error flashes | `#f38ba8` |
+| `backgroundColor` | Base fill behind the glass layer | `#1e1e2e` |
 
 ### Background
 
@@ -64,9 +64,9 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 | `backgroundFillMode` | Image sizing mode (`aspectCrop`, `aspectFit`, `stretch`, `tile`, `center`) | `aspectCrop` |
 | `backgroundOpacity` | Opacity of the background image layer | `1` |
 | `backgroundGlassEnabled` | Enable the Gaussian blur glass treatment | `true` |
-| `backgroundGlassIntensity` | Blur strength (0–64) | `42` |
-| `backgroundTintColor` | Base tint color placed over the wallpaper | `#0a0d13` |
-| `backgroundTintIntensity` | Tint opacity (0–1) | `0.52` |
+| `backgroundGlassIntensity` | Blur strength (0–64) | `52` |
+| `backgroundTintColor` | Base tint color placed over the wallpaper | `#181926` |
+| `backgroundTintIntensity` | Tint opacity (0–1) | `0.45` |
 
 ### Typography
 
@@ -79,8 +79,8 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 
 | Key | Description | Default |
 | --- | --- | --- |
-| `controlCornerRadius` | Corner radius for inputs, selectors, and power buttons | `28` |
-| `controlAccentColor` | Single accent color driving button fills/borders | `#2a9df4` |
+| `controlCornerRadius` | Corner radius for inputs, selectors, and power buttons | `30` |
+| `controlAccentColor` | Single accent color driving button fills/borders | `#89b4fa` |
 | `allowEmptyPassword` | Permit logging in without a password | `false` |
 | `showUserSelector` | Show user selection carousel by default | `false` |
 | `showSessionSelector` | Show session selection carousel by default | `false` |
