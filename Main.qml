@@ -97,7 +97,14 @@ Rectangle {
     readonly property real backgroundGlassRadius: backgroundGlassEnabled
         ? configUtil.clamp(Math.round(16 + (backgroundGlassIntensity / 100) * 48), 0, 64)
         : 0
-    readonly property color backgroundTintColor: configUtil.colorValue("backgroundTint", Qt.rgba(0, 0, 0, 0))
+    readonly property color backgroundTintBaseColor: configUtil.colorValue("backgroundTintColor", Qt.rgba(0, 0, 0, 1))
+    readonly property real backgroundTintIntensity: configUtil.realValue("backgroundTintIntensity", 0.0, 0.0, 1.0)
+    readonly property color backgroundTintColor: Qt.rgba(
+        backgroundTintBaseColor.r,
+        backgroundTintBaseColor.g,
+        backgroundTintBaseColor.b,
+        Math.min(1, Math.max(0, backgroundTintIntensity))
+    )
     readonly property bool hasBackgroundTint: backgroundTintColor.a > 0.001
     readonly property color controlAccentColor: configUtil.colorValue("controlAccentColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.8))
     readonly property real controlCornerRadius: configUtil.realValue("controlCornerRadius", 16, 0, 64)
@@ -320,9 +327,9 @@ Rectangle {
                     id: passwordInput
                     anchors {
                         left: parent.left
-                        leftMargin: 16
-                        right: passwordToggleButton.left
-                        rightMargin: 12
+                        leftMargin: 16 + passwordToggleButton.width / 2
+                        right: parent.right
+                        rightMargin: 16 + passwordToggleButton.width / 2
                         top: parent.top
                         topMargin: 16
                         bottom: parent.bottom
@@ -365,9 +372,9 @@ Rectangle {
                     id: passwordDisplay
                     anchors {
                         left: parent.left
-                        leftMargin: 16
-                        right: passwordToggleButton.left
-                        rightMargin: 12
+                        leftMargin: 16 + passwordToggleButton.width / 2
+                        right: parent.right
+                        rightMargin: 16 + passwordToggleButton.width / 2
                         top: parent.top
                         topMargin: 16
                         bottom: parent.bottom
@@ -816,7 +823,13 @@ Rectangle {
     }
 
     function maxMaskLength() {
-        const availableWidth = Math.max(0, passwordContainer.width - 32)
+        const leftMargin = passwordInput.anchors && passwordInput.anchors.leftMargin !== undefined
+            ? passwordInput.anchors.leftMargin
+            : 16
+        const rightMargin = passwordInput.anchors && passwordInput.anchors.rightMargin !== undefined
+            ? passwordInput.anchors.rightMargin
+            : 16
+        const availableWidth = Math.max(0, passwordContainer.width - (leftMargin + rightMargin))
         const charWidth = (baseFontSize + 8) * 0.7
         const capacity = Math.floor(availableWidth / Math.max(1, charWidth))
         return Math.max(0, capacity)
@@ -1054,15 +1067,17 @@ Rectangle {
 
         width: 48
         height: 48
-        radius: 22
+        radius: controlCornerRadius
 
         color: mouseArea.pressed
-            ? Qt.rgba(1, 1, 1, 0.3)
+            ? controlFillPressed
             : mouseArea.containsMouse
-                ? Qt.rgba(1, 1, 1, 0.2)
-                : Qt.rgba(1, 1, 1, 0.1)
+                ? controlFillHover
+                : controlFillBase
 
-        border.color: Qt.rgba(1, 1, 1, 0.2)
+        border.color: mouseArea.pressed || mouseArea.containsMouse
+            ? controlBorderActive
+            : controlBorderBase
         border.width: 1
 
         Behavior on color { ColorAnimation { duration: 150 } }
