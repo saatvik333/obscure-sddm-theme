@@ -102,6 +102,7 @@ Rectangle {
     readonly property real inputCornerRadius: configUtil.realValue("inputCornerRadius", 10, 0, 48)
     readonly property color inputBorderColor: configUtil.colorValue("inputBorderColor", Qt.rgba(1, 1, 1, 0.18))
     readonly property color inputActiveBorderColor: configUtil.colorValue("inputActiveBorderColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.9))
+    readonly property color inputBackgroundTint: configUtil.colorValue("inputBackgroundTint", Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.2))
     readonly property bool allowEmptyPassword: configUtil.boolValue("allowEmptyPassword", false)
     readonly property bool showUserRealName: configUtil.boolValue("showUserRealName", false)
     readonly property bool randomizePasswordMask: configUtil.boolValue("randomizePasswordMask", false)
@@ -251,138 +252,88 @@ Rectangle {
             }
 
             // Password input
-            Item {
+            Rectangle {
                 id: passwordContainer
                 width: parent.width
                 height: 56
-                property bool blurActive: isGlassBackgroundActive
-                property real blurRadius: blurActive ? Math.max(20, backgroundGlassRadius * 0.75) : 0
-                property real blurPadding: blurActive ? (blurRadius * 0.6 + 4) : 0
-
-                function computeSourceRect() {
-                    if (!backgroundLayer) {
-                        return Qt.rect(0, 0, width, height)
-                    }
-                    const mapped = passwordContainer.mapToItem(backgroundLayer, -blurPadding, -blurPadding)
-                    return Qt.rect(mapped.x, mapped.y, width + blurPadding * 2, height + blurPadding * 2)
-                }
+                radius: inputCornerRadius
+                color: passwordMouseArea.pressed
+                    ? Qt.rgba(inputBackgroundTint.r, inputBackgroundTint.g, inputBackgroundTint.b, Math.min(1, inputBackgroundTint.a * 1.4))
+                    : passwordMouseArea.containsMouse
+                        ? Qt.rgba(inputBackgroundTint.r, inputBackgroundTint.g, inputBackgroundTint.b, Math.min(1, inputBackgroundTint.a * 1.2))
+                        : inputBackgroundTint
+                border.color: passwordInput.activeFocus ? inputActiveBorderColor : inputBorderColor
+                border.width: 1
+                antialiasing: true
 
                 onWidthChanged: updatePasswordMask()
-                onHeightChanged: updatePasswordMask()
 
-                ShaderEffectSource {
-                    id: passwordBackgroundSource
-                    anchors.fill: parent
-                    anchors.leftMargin: -passwordContainer.blurPadding
-                    anchors.rightMargin: -passwordContainer.blurPadding
-                    anchors.topMargin: -passwordContainer.blurPadding
-                    anchors.bottomMargin: -passwordContainer.blurPadding
-                    visible: passwordContainer.blurActive
-                    live: true
-                    recursive: false
-                    sourceItem: backgroundLayer
-                    sourceRect: passwordContainer.blurActive ? passwordContainer.computeSourceRect() : Qt.rect(0, 0, width, height)
+                Behavior on color { ColorAnimation { duration: 150 } }
+
+                Behavior on border.color {
+                    ColorAnimation { duration: 200 }
                 }
 
-                FastBlur {
-                    id: passwordBlur
+                // Hidden text input for actual password
+                TextInput {
+                    id: passwordInput
                     anchors.fill: parent
-                    anchors.leftMargin: -passwordContainer.blurPadding
-                    anchors.rightMargin: -passwordContainer.blurPadding
-                    anchors.topMargin: -passwordContainer.blurPadding
-                    anchors.bottomMargin: -passwordContainer.blurPadding
-                    source: passwordBackgroundSource
-                    radius: passwordContainer.blurRadius
-                    transparentBorder: true
-                    visible: passwordContainer.blurActive
+                    anchors.margins: 16
+
+                    font.family: fontFamily
+                    font.pixelSize: baseFontSize + 8
+                    color: "transparent"
+                    echoMode: TextInput.NoEcho
+                    selectByMouse: false
+                    selectionColor: "transparent"
+                    selectedTextColor: "transparent"
+                    cursorVisible: false
+                    cursorDelegate: Item {
+                        visible: false
+                        width: 0
+                        height: 0
+                    }
+                    focus: true
+                    enabled: !isLoginInProgress
+
+                    onAccepted: attemptLogin()
+                    onTextChanged: {
+                        if (loginFailed) {
+                            clearError()
+                        }
+                        updatePasswordMask()
+                    }
+
+                    Keys.onEscapePressed: {
+                        clear()
+                        resetPasswordMaskCache()
+                        updatePasswordMask()
+                    }
                 }
 
-                Rectangle {
-                    id: passwordBlurMask
+                // Visible display of IPA characters
+                Text {
+                    id: passwordDisplay
                     anchors.fill: parent
-                    radius: inputCornerRadius
-                    antialiasing: true
-                    visible: false
-                }
+                    anchors.margins: 16
 
-                OpacityMask {
-                    anchors.fill: parent
-                    visible: passwordContainer.blurActive
-                    source: passwordBlur
-                    maskSource: passwordBlurMask
-                    invert: false
-                }
-
-                Rectangle {
-                    id: passwordSurface
-                    anchors.fill: parent
-                    radius: inputCornerRadius
-                    color: passwordContainer.blurActive
-                        ? Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, Math.min(0.55, 0.22 + backgroundGlassIntensity / 350))
-                        : Qt.rgba(backgroundColor.r, backgroundColor.g, backgroundColor.b, 0.18)
-                    border.color: passwordInput.activeFocus ? inputActiveBorderColor : inputBorderColor
-                    border.width: 1
-                    antialiasing: true
-                    clip: true
-
+                    font.family: fontFamily
+                    font.pixelSize: baseFontSize + 8
+                    color: textColor
+                    horizontalAlignment: Text.AlignHCenter
+                    verticalAlignment: Text.AlignVCenter
+                    text: passwordMask
+                    clip: true  // Ensure text doesn't overflow
                     onWidthChanged: updatePasswordMask()
+                }
 
-                    Behavior on border.color {
-                        ColorAnimation { duration: 200 }
-                    }
-
-                    // Hidden text input for actual password
-                    TextInput {
-                        id: passwordInput
-                        anchors.fill: parent
-                        anchors.margins: 16
-
-                        font.family: fontFamily
-                        font.pixelSize: baseFontSize + 8
-                        color: "transparent"
-                        echoMode: TextInput.NoEcho
-                        selectByMouse: false
-                        selectionColor: "transparent"
-                        selectedTextColor: "transparent"
-                        cursorVisible: false
-                        cursorDelegate: Item {
-                            visible: false
-                            width: 0
-                            height: 0
-                        }
-                        focus: true
-                        enabled: !isLoginInProgress
-
-                        onAccepted: attemptLogin()
-                        onTextChanged: {
-                            if (loginFailed) {
-                                clearError()
-                            }
-                            updatePasswordMask()
-                        }
-
-                        Keys.onEscapePressed: {
-                            clear()
-                            resetPasswordMaskCache()
-                            updatePasswordMask()
-                        }
-                    }
-
-                    // Visible display of IPA characters
-                    Text {
-                        id: passwordDisplay
-                        anchors.fill: parent
-                        anchors.margins: 16
-
-                        font.family: fontFamily
-                        font.pixelSize: baseFontSize + 8
-                        color: textColor
-                        horizontalAlignment: Text.AlignHCenter
-                        verticalAlignment: Text.AlignVCenter
-                        text: passwordMask
-                        clip: true  // Ensure text doesn't overflow
-                        onWidthChanged: updatePasswordMask()
-                    }
+                MouseArea {
+                    id: passwordMouseArea
+                    anchors.fill: parent
+                    hoverEnabled: true
+                    acceptedButtons: Qt.NoButton
+                    cursorShape: Qt.IBeamCursor
+                    onEntered: passwordInput.forceActiveFocus()
                 }
             }
 
