@@ -2,6 +2,8 @@
 
 A minimal yet customizable SDDM theme that uses IPA (International Phonetic Alphabet) characters for password masking, creating an obscure and unique look for your login experience.
 
+![demo](https://github.com/user-attachments/assets/f4a04b3e-955f-4936-b195-c92ac4e7cf66)
+
 ## Features
 
 - Clean look-and-feel driven by a accent colors and glass tint controls
