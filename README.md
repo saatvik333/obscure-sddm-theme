@@ -26,13 +26,19 @@ A minimal yet customizable SDDM theme that uses IPA (International Phonetic Alph
    git clone https://github.com/saatvik333/obscure-sddm-theme.git
    ```
 
-2. Copy the theme to SDDM themes directory:
+2. Install necessary packages
+
+   ```bash
+   yay -S sddm qt6-5compat
+   ```
+
+3. Copy the theme to SDDM themes directory:
 
    ```bash
    sudo cp -r obscure-sddm-theme /usr/share/sddm/themes/obscure
    ```
 
-3. Set the theme in SDDM configuration:
+4. Set the theme in SDDM configuration:
 
    ```bash
    sudo sh -c 'printf "[Theme]\nCurrent=obscure\n" > /etc/sddm.conf'
