@@ -88,7 +88,8 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 | Key | Description | Default |
 | --- | --- | --- |
 | `controlCornerRadius` | Corner radius for inputs, selectors, and power buttons | `30` |
-| `controlAccentColor` | Single accent color driving button fills/borders | `#89b4fa` |
+| `controlAccentColor` | Single accent color driving button fills/borders | `#d65d0e` |
+| `controlOpacity` | Base opacity controlling control fill/border strength | `0.24` |
 | `allowEmptyPassword` | Permit logging in without a password | `false` |
 | `showUserSelector` | Show user selection carousel by default | `false` |
 | `showSessionSelector` | Show session selection carousel by default | `false` |

@@ -107,13 +107,14 @@ Rectangle {
     )
     readonly property bool hasBackgroundTint: backgroundTintColor.a > 0.001
     readonly property color controlAccentColor: configUtil.colorValue("controlAccentColor", Qt.rgba(textColor.r, textColor.g, textColor.b, 0.8))
+    readonly property real controlOpacity: configUtil.realValue("controlOpacity", 0.24, 0.0, 1.0)
     readonly property real controlCornerRadius: configUtil.realValue("controlCornerRadius", 16, 0, 64)
-    readonly property color controlFillBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.2)
-    readonly property color controlFillHover: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.28)
-    readonly property color controlFillFocus: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.34)
-    readonly property color controlFillPressed: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.42)
-    readonly property color controlBorderBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.26)
-    readonly property color controlBorderActive: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, 0.62)
+    readonly property color controlFillBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, controlOpacity)
+    readonly property color controlFillHover: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, Math.min(1, controlOpacity + 0.08))
+    readonly property color controlFillFocus: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, Math.min(1, controlOpacity + 0.14))
+    readonly property color controlFillPressed: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, Math.min(1, controlOpacity + 0.2))
+    readonly property color controlBorderBase: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, Math.min(1, controlOpacity + 0.06))
+    readonly property color controlBorderActive: Qt.rgba(controlAccentColor.r, controlAccentColor.g, controlAccentColor.b, Math.min(1, controlOpacity + 0.32))
     readonly property int passwordFlashLoops: Math.max(1, configUtil.intValue("passwordFlashLoops", 2, 1, 6))
     readonly property int passwordFlashOnDuration: Math.max(30, configUtil.intValue("passwordFlashOnDuration", 160, 20, 1000))
     readonly property int passwordFlashOffDuration: Math.max(30, configUtil.intValue("passwordFlashOffDuration", 220, 20, 1000))
@@ -291,7 +292,9 @@ Rectangle {
                             : toggleMouse.containsMouse
                                 ? controlFillHover
                                 : controlFillBase
-                    border.color: passwordVisible ? controlBorderActive : controlBorderBase
+                    border.color: (passwordVisible || toggleMouse.containsMouse)
+                        ? controlBorderActive
+                        : controlBorderBase
                     border.width: 1
                     antialiasing: true
                     z: 3
@@ -311,7 +314,7 @@ Rectangle {
                     ColorOverlay {
                         anchors.fill: passwordToggleIcon
                         source: passwordToggleIcon
-                        color: Qt.rgba(textColor.r, textColor.g, textColor.b, toggleMouse.containsMouse || passwordVisible ? 0.92 : 0.78)
+                        color: textColor
                     }
 
                     MouseArea {
@@ -349,7 +352,8 @@ Rectangle {
                         width: 0
                         height: 0
                     }
-                    focus: true
+                    focus: false
+                    focusPolicy: Qt.ClickFocus
                     enabled: !isLoginInProgress
 
                     onAccepted: attemptLogin()
@@ -428,9 +432,9 @@ Rectangle {
                     id: passwordMouseArea
                     anchors.fill: parent
                     hoverEnabled: true
-                    acceptedButtons: Qt.NoButton
+                    acceptedButtons: Qt.LeftButton
                     cursorShape: Qt.IBeamCursor
-                    onEntered: passwordInput.forceActiveFocus()
+                    onClicked: passwordInput.forceActiveFocus()
                     z: 0
                 }
             }
@@ -576,9 +580,6 @@ Rectangle {
 
     // Component initialization
     Component.onCompleted: {
-        if (userCount() > 0) {
-            passwordInput.forceActiveFocus()
-        }
         validateConfiguration()
         updatePasswordMask()
         console.log("Theme initialized. Background:", backgroundImage.source)
@@ -997,7 +998,9 @@ Rectangle {
                 : prevMouseArea.containsMouse
                     ? controlFillHover
                     : controlFillBase
-            border.color: controlBorderBase
+            border.color: prevMouseArea.containsMouse
+                ? controlBorderActive
+                : controlBorderBase
             border.width: 1
             antialiasing: true
 
@@ -1036,7 +1039,9 @@ Rectangle {
                 : nextMouseArea.containsMouse
                     ? controlFillHover
                     : controlFillBase
-            border.color: controlBorderBase
+            border.color: nextMouseArea.containsMouse
+                ? controlBorderActive
+                : controlBorderBase
             border.width: 1
             antialiasing: true
 
@@ -1098,12 +1103,20 @@ Rectangle {
         Behavior on color { ColorAnimation { duration: 150 } }
 
         Image {
+            id: powerIcon
             anchors.centerIn: parent
             source: parent.iconSource
             sourceSize: Qt.size(26, 26)
             fillMode: Image.PreserveAspectFit
             smooth: true
             antialiasing: true
+            visible: false
+        }
+
+        ColorOverlay {
+            anchors.fill: powerIcon
+            source: powerIcon
+            color: textColor
         }
 
         MouseArea {
