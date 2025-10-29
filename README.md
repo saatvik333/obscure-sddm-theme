@@ -71,10 +71,10 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 | `backgroundImage` | Path to an optional wallpaper (leave empty for solid color) | _(empty)_ |
 | `backgroundFillMode` | Image sizing mode (`aspectCrop`, `aspectFit`, `stretch`, `tile`, `center`) | `aspectCrop` |
 | `backgroundOpacity` | Opacity of the background image layer | `1` |
-| `backgroundGlassEnabled` | Enable the Gaussian blur glass treatment | `true` |
-| `backgroundGlassIntensity` | Blur strength (0–64) | `52` |
-| `backgroundTintColor` | Base tint color placed over the wallpaper | `#181926` |
-| `backgroundTintIntensity` | Tint opacity (0–1) | `0.45` |
+| `backgroundGlassEnabled` | Enable the Gaussian blur glass treatment | `false` |
+| `backgroundGlassIntensity` | Blur strength (0–64) | `64` |
+| `backgroundTintColor` | Base tint color placed over the wallpaper | `#11111b` |
+| `backgroundTintIntensity` | Tint opacity (0–1) | `0` |
 
 ### Typography
 
@@ -88,14 +88,14 @@ All customization lives in `theme.conf`. Settings are grouped just like in the f
 | Key | Description | Default |
 | --- | --- | --- |
 | `controlCornerRadius` | Corner radius for inputs, selectors, and power buttons | `30` |
-| `controlAccentColor` | Single accent color driving button fills/borders | `#d65d0e` |
-| `controlOpacity` | Base opacity controlling control fill/border strength | `0.24` |
+| `controlAccentColor` | Single accent color driving button fills/borders | `#89b4fa` |
+| `controlOpacity` | Base opacity controlling control fill/border strength | `0.3` |
 | `allowEmptyPassword` | Permit logging in without a password | `false` |
 | `showUserSelector` | Show user selection carousel by default | `false` |
 | `showSessionSelector` | Show session selection carousel by default | `false` |
 | `randomizePasswordMask` | Shuffle IPA mask characters each keystroke | `true` |
 | `animationDuration` | Base animation length in milliseconds | `320` |
-| `passwordFlashLoops` | How many times the password field flashes on error | `2` |
+| `passwordFlashLoops` | How many times the password field flashes on error | `3` |
 | `passwordFlashOnDuration` | Duration of each flash highlight (ms) | `200` |
 | `passwordFlashOffDuration` | Duration of the fade-out between flashes (ms) | `260` |
 
